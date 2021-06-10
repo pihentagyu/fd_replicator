@@ -1,0 +1,8 @@
+bcc_addr: 
+- null
+cc_addr: 
+- null
+from_addr: foo@bar.com
+to_addr:
+- foobar@baz.com
+- foobar2d@baz.com

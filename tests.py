@@ -5,8 +5,9 @@ import shlex
 import string
 import subprocess
 import unittest
-from unittest.mock import MagicMock, patch, call, DEFAULT
+from unittest.mock import MagicMock, patch, mock_open, call, DEFAULT
 
+import fd_replicator_main
 from fd_replicator_main import *
 import actions.fd_devices as fd_devices
 from actions.fd_devices import Devices, FdDevice
@@ -14,7 +15,145 @@ from actions.fd_devices import Devices, FdDevice
 
 class ReplicatorMainTests(unittest.TestCase):
     def setUp(self):
-        pass
+        self.replicator_main = ReplicatorMain()
+        self.replicator_main.fd_devices = MagicMock()
+
+    @patch('actions.fd_devices.FdDevice')
+    def test_new_device(self, mock_FdDevice):
+        device = self.replicator_main.new_device()
+        self.assertIsInstance(device, FdDevice)
+
+    @patch('fd_replicator_main.os.path.isdir', side_effect=(False, True, False))
+    @patch('fd_replicator_main.os.makedirs', side_effect=(None, OSError('os error')))
+    def test_check_and_create_dir(self, mock_makedirs, mock_isdir):
+       resp = self.replicator_main.check_and_create_dir('/foo/bar')
+       self.assertEqual(resp, None)
+       mock_isdir.assert_called_with('/foo/bar')
+       mock_makedirs.assert_called_with('/foo/bar')
+
+       resp = self.replicator_main.check_and_create_dir('/foo/bar')
+       self.assertEqual(resp, None)
+       mock_isdir.assert_called_with('/foo/bar')
+
+       resp = self.replicator_main.check_and_create_dir('/foo/bar')
+       mock_isdir.assert_called_with('/foo/bar')
+       mock_makedirs.assert_called_with('/foo/bar')
+       self.assertIsInstance(resp, OSError)
+
+       self.assertEqual(mock_makedirs.call_count, 2)
+
+    @patch('fd_replicator_main.os.path.isfile', side_effect=(True, True, True, False))#)#, 
+    def test_get_prev_thread_count(self, mock_isfile):
+        with patch('fd_replicator_main.open', mock_open(read_data='10')):#, side_effect=(None, OSError, ValueError))
+            fd_replicator_main.DEFAULT_THREAD_NUM = 15
+            self.replicator_main.thread_count_file = 'foo/bar.txt'
+            thread_ct = self.replicator_main.get_prev_thread_count()
+            self.assertEqual(thread_ct, 10)
+            mock_isfile.assert_called_with('foo/bar.txt')
+
+        fd_replicator_main.open = MagicMock(side_effect=OSError)
+        thread_ct = self.replicator_main.get_prev_thread_count()
+        self.assertEqual(thread_ct, 15)
+        mock_isfile.assert_called_with('foo/bar.txt')
+
+        with patch('fd_replicator_main.open', mock_open(read_data='not a number')):#, side_effect=(None, OSError, ValueError))
+            thread_ct = self.replicator_main.get_prev_thread_count()
+            self.assertEqual(thread_ct, 15)
+            mock_isfile.assert_called_with('foo/bar.txt')
+
+        thread_ct = self.replicator_main.get_prev_thread_count()
+        self.assertEqual(thread_ct, 15)
+        mock_isfile.assert_called_with('foo/bar.txt')
+
+    def test_get_prev_thread_count(self):
+        m = mock_open()
+        self.replicator_main.thread_count_file = './foobar'
+        with patch('fd_replicator_main.open', m):
+            self.replicator_main.save_prev_thread_num(10)
+
+        m.assert_called_once_with('./foobar', 'w')
+        h = m()
+        h.write.assert_called_with('10')
+
+    def test_get_text_from_file(self):
+        m = mock_open(read_data='This is the text')
+        with patch('fd_replicator_main.open', m):
+            text = self.replicator_main.get_text_from_file('./help')
+        self.assertEqual(text, 'This is the text')
+        m.assert_called_once_with('./help', 'r')
+
+    def test_get_devices(self):
+        self.replicator_main.fd_devices.get_usb_ids = MagicMock(return_value={'/dev/sda': ['00']})
+        self.replicator_main.fd_devices.get_hubs_with_mappings = MagicMock(return_value={'1': [('2.6', '/dev/sdh', (5, 1)), 
+            ('6.4.4', '/dev/sdn', (14, 1)), 
+            ('1.5', '/dev/sdv', (7, 1)), 
+            ('1.4', '/dev/sdr', (8, 1)), ('3.4', '/dev/sds', (5, 0)), ('3.2', '/dev/sdj', (3, 0)), ('2.4', '/dev/sdc', (0, 1)), 
+            ('4.2', '/dev/sdk', (11, 0)), ('4.7', '/dev/sdad', (9, 0)), ('3.5', '/dev/sdw', (6, 0)), ('4.1', '/dev/sdg', (10, 0)), 
+            ('1.6', '/dev/sdx', (13, 1)), ('4.3', '/dev/sdq', (12, 0)), ('3.7', '/dev/sdab', (1, 0)), ('4.6', '/dev/sdac', (8, 0)),
+            ('3.6', '/dev/sdy', (0, 0)), ('3.1', '/dev/sdf', (2, 0)), ('1.3', '/dev/sdm', (9, 1)), ('2.7', '/dev/sdl', (4, 1)), 
+            ('3.3', '/dev/sdo', (4, 0)), ('4.5', '/dev/sdaa', (7, 0)), ('1.2', '/dev/sdi', (10, 1)), ('1.7', '/dev/sdz', (12, 1)), 
+            ('2.2', '/dev/sdu', (2, 1)), ('4.4', '/dev/sdt', (13, 0)), ('1.1', '/dev/sde', (11, 1))], '2': [('2.1', '/dev/sdp', (3, 1)), 
+            ('2.5', '/dev/sdd', (6, 1)), ('2.3', '/dev/sdb', (1, 1))]})
+        hubs, connected_ports = self.replicator_main.get_devices()
+
+    def test_get_direct_dev(self):
+        self.replicator_main.fd_devices.get_direct_dev = MagicMock(side_effect=[{'/dev/sda': '00'}, None])
+        direct_devices = self.replicator_main.get_direct_dev()
+        self.assertEqual(direct_devices, {'/dev/sda': '00'})
+        direct_devices = self.replicator_main.get_direct_dev()
+        self.assertEqual(direct_devices, {})
+
+    @patch('fd_replicator_main.os.path.isfile', side_effect=(True, True, False))
+    @patch('fd_replicator_main.yaml.safe_load', return_value={'from_addr': 'foo@bar.com', 'to_addr':['foobar@baz']})
+    def test_get_mail_settings(self, mock_safe_load, mock_isfile):
+        m = mock_open(read_data='from_addr\n foo@bar.com\n to_addr\n foobar@baz')
+        with patch('fd_replicator_main.open', m):
+            email_data = self.replicator_main.get_email_settings()
+        self.assertEqual(email_data, {'from_addr': 'foo@bar.com', 'to_addr':['foobar@baz']})
+        m.assert_called_once_with('./config/email_config.yaml', 'r')
+
+    @patch('fd_replicator_main.yaml.dump')
+    def test_save_email_settings(self, mock_dump):
+        m = mock_open()
+        with patch('fd_replicator_main.open', m):
+            email_data = self.replicator_main.save_email_settings(a='b', b='c')
+        mock_dump.assert_called_with({'a': 'b', 'b': 'c'}, m(), default_flow_style=False)
+
+    @patch('fd_replicator_main.Mail')
+    def test_send_notifications(self, mock_Mail):
+        self.replicator_main.fd_devices.replicator = 'LinuxBox'
+        self.replicator_main.get_email_settings = MagicMock(return_value={'from_addr': 'foobar@baz', 'to_addr': 'foobar2@baz'})
+        self.replicator_main.humanize_time = MagicMock(return_value='2:22:22')
+        devices = ['sdaa', 'sdab', 'sdac']
+        failed = []
+        total_time = 344332
+        file_list = ['abc.txt', 'cde.txt']
+        contents = ', '.join(file_list)
+        message_text = f'Finished copying on LinuxBox.\n Contents: {contents}.\n\n {devices} devices. Failed: {failed}. Time elapsed (hh:mm:ss): 2:22:22'
+        self.replicator_main.send_notification(devices, failed, total_time, file_list)
+        subject = 'Finished Copying Devices on LinuxBox'
+
+        self.replicator_main.get_email_settings.assert_called()
+        mock_Mail.assert_called()
+        self.replicator_main.mail.connect.assert_called()
+        self.replicator_main.mail.compose_mail.assert_called_with(message_text, 'foobar@baz', 'foobar2@baz', subject=subject)
+        self.replicator_main.mail.send_mail.assert_called_with('foobar@baz', 'foobar2@baz')
+
+    def test_humanize_time(self):
+        htime = self.replicator_main.humanize_time(60)
+        self.assertEqual(htime, '00:01:00')
+
+        htime = self.replicator_main.humanize_time(60, add_plus_sign=True)
+        self.assertEqual(htime, '+ 00:01:00')
+
+        htime = self.replicator_main.humanize_time(3600)
+        self.assertEqual(htime, '01:00:00')
+
+        htime = self.replicator_main.humanize_time(3661)
+        self.assertEqual(htime, '01:01:01')
+
+        htime = self.replicator_main.humanize_time(360000)
+        self.assertEqual(htime, '100:00:00')
 
 class DevicesTests(unittest.TestCase):
     def setUp(self):
