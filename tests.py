@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from email.mime.multipart import MIMEMultipart
 import hashlib
 import shlex
 import string
@@ -11,6 +12,7 @@ import fd_replicator_main
 from fd_replicator_main import *
 import actions.fd_devices as fd_devices
 from actions.fd_devices import Devices, FdDevice
+from actions.mail import Mail
 
 
 class ReplicatorMainTests(unittest.TestCase):
@@ -547,6 +549,42 @@ class FdDeviceTests(unittest.TestCase):
         results = self.fd_device.copy(source_device, source_dir)
         self.assertEqual(results, 'results123')
 
+class MailTests(unittest.TestCase):
+    @patch('actions.mail.smtplib.SMTP', return_value=MagicMock())
+    def setUp(self, mock_SMTP):
+        self.mail = Mail()
+        mock_SMTP.assert_called()
+
+    def test_compose_mail(self):
+        with patch('actions.mail.open', mock_open(read_data='Atachment Text')):
+            self.mail.compose_mail('This is a message', 'foo@bar', ['baz@bar', 'baz2@bar'], subject='This is the subject')
+        self.assertIsInstance(self.mail.msg, MIMEMultipart)
+        self.assertEqual(self.mail.msg['From'], 'foo@bar')
+        self.assertEqual(self.mail.msg['To'], 'baz@bar, baz2@bar')
+        self.assertEqual(self.mail.msg['Subject'], 'This is the subject')
+
+
+    @patch('actions.mail.logging')
+    def test_send_mail(self, mock_logging): 
+        self.mail.server.sendmail = MagicMock()
+        self.mail.msg = MagicMock()
+        self.mail.msg.as_string = MagicMock(return_value='Message')
+        self.mail.disconnect = MagicMock()
+        self.mail.send_mail('foo@bar', ['baz1@foobar', 'baz2@foobar'])
+        mock_logging.assert_not_called()
+        self.mail.server.sendmail.assert_called_with('foo@bar', ['baz1@foobar', 'baz2@foobar'], 'Message')
+        
+
+    def test_connect(self):
+        self.mail.server = MagicMock()
+        self.mail.connect()
+        self.mail.server.connenct.assert_called()
+
+
+    def test_connect(self):
+        self.mail.server = MagicMock()
+        self.mail.disconnect()
+        self.mail.server.quit.assert_called()
 
 
 if __name__ == '__main__':
