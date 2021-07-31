@@ -97,6 +97,8 @@ class ReplicatorMainTests(unittest.TestCase):
             ('2.2', '/dev/sdu', (2, 1)), ('4.4', '/dev/sdt', (13, 0)), ('1.1', '/dev/sde', (11, 1))], '2': [('2.1', '/dev/sdp', (3, 1)), 
             ('2.5', '/dev/sdd', (6, 1)), ('2.3', '/dev/sdb', (1, 1))]})
         hubs, connected_ports = self.replicator_main.get_devices()
+        print(hubs)
+        print(connected_ports)
 
     def test_get_direct_dev(self):
         self.replicator_main.fd_devices.get_direct_dev = MagicMock(side_effect=[{'/dev/sda': '00'}, None])

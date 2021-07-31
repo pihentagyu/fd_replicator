@@ -8,7 +8,7 @@ import sys
 
 from config.config import LOGFILE
 from PyQt5.QtWidgets import QApplication
-from widgets.main_widget import FdMainWidget
+from widgets.main_widget import MainWidget
 
 def logging_init():
     log_dir = os.path.split(LOGFILE)[0]
@@ -23,7 +23,7 @@ def logging_init():
 def window():
     logging_init()
     app = QApplication(sys.argv)
-    ex = GochipMainWidget()
+    ex = MainWidget()
     ex.show()
     ret = app.exec_()
     #sys.exit(ret)
