@@ -156,23 +156,74 @@ class DeviceWidgetTests(unittest.TestCase):
         self.assertEqual(self.device_widget.progress_bars['01'][(0,0)].status, None)
         self.assertEqual(self.device_widget.progress_bars['02'][(26,0)].status, None)
 
+
 class MainWidgetTests(unittest.TestCase):
-    def setUp(self):
+    @patch('widgets.main_widget.ReplicatorMain')
+    @patch('widgets.main_widget.MainWidget.init_ui')
+    def setUp(self, mock_init_ui,  mock_ReplicatorMain):
         self.mw = MainWidget()
+        self.mock_init_ui = mock_init_ui
+        self.mock_ReplicatorMain = mock_ReplicatorMain
+
+    def test_init(self):
+        self.mock_ReplicatorMain.assert_called()
+        self.mock_init_ui.assert_called()
+        self.assertEqual(self.mw.debug, False)
+        self.assertEqual(self.mw.source_object, None)
+        self.assertEqual(self.mw.checksums, True)
+        self.mock_init_ui.assert_called()
 
     def test_defaults(self):
-        ## buttons
+        self.mw.replicator_main.get_prev_thread_count = MagicMock(return_value=5)
+        self.mw.init_config = MagicMock()
+        self.mw.initialize_devices = MagicMock()
+        self.mw.init_ui()
+
+        self.mw.replicator_main.get_prev_thread_count.assert_called()
+        self.assertEqual(self.mw.thread_num, 5)
+        self.mw.init_config.assert_called()
+
+        self.assertEqual(self.mw.windowTitle(), 'Devices')
+
+        self.assertEqual(self.mw.refresh_action.text(), '&Refresh')
+        self.assertEqual(self.mw.refresh_action.shortcut(), 'Ctrl+R')
+        self.assertEqual(self.mw.refresh_action.statusTip(), 'Refresh')
+
+        self.assertEqual(self.mw.reset_action.text(), '&Reset Devices')
+        self.assertEqual(self.mw.reset_action.shortcut(), 'Ctrl+Alt+R')
+        self.assertEqual(self.mw.reset_action.statusTip(), 'Reset Devices')
+
+        self.assertEqual(self.mw.copy_action.text(), '&Copy To Devices')
+        self.assertEqual(self.mw.copy_action.shortcut(), 'Ctrl+C')
+        self.assertEqual(self.mw.copy_action.statusTip(), 'Copy To Devices')
         self.assertEqual(self.mw.copy_action.isEnabled(), False)
-        self.assertEqual(self.mw.button_dict['Refresh File List'].isEnabled(), True)
-        self.assertEqual(self.mw.button_dict['Reset Devices'].isEnabled(), True)
-        self.assertEqual(self.mw.button_dict['Copy'].isEnabled(), False)
-        self.assertEqual(self.mw.button_dict['Help'].isEnabled(), True)
-        self.assertEqual(self.mw.button_dict['Exit'].isEnabled(), True)
 
+        self.assertEqual(self.mw.logs_action.text(), '&Logs')
+        self.assertEqual(self.mw.logs_action.shortcut(), 'Ctrl+L')
+        self.assertEqual(self.mw.logs_action.statusTip(), 'View Logs')
 
-        ## List
-        self.assertEqual(self.mw.list_widget_1.maximumHeight(), 70)
-        self.assertEqual(self.mw.source_object, None)
+        self.assertEqual(self.mw.email_action.text(), '&Email')
+        self.assertEqual(self.mw.email_action.shortcut(), 'Ctrl+E')
+        self.assertEqual(self.mw.email_action.statusTip(), 'Email')
+
+        self.assertEqual(self.mw.help_action.text(), '&Help')
+        self.assertEqual(self.mw.help_action.shortcut(), 'Ctrl+H')
+        self.assertEqual(self.mw.help_action.statusTip(), 'Help')
+
+        self.assertEqual(self.mw.exit_action.text(), '&Quit')
+        self.assertEqual(self.mw.exit_action.shortcut(), 'Ctrl+Q')
+        self.assertEqual(self.mw.exit_action.statusTip(), 'Exit Application')
+
+        ## buttons
+
+        #self.assertEqual(self.mw.button_dict['Refresh File List'].isEnabled(), True)
+        #self.assertEqual(self.mw.button_dict['Reset Devices'].isEnabled(), True)
+        #self.assertEqual(self.mw.button_dict['Copy'].isEnabled(), False)
+        #self.assertEqual(self.mw.button_dict['Help'].isEnabled(), True)
+        #self.assertEqual(self.mw.button_dict['Exit'].isEnabled(), True)
+        ### List
+        #self.assertEqual(self.mw.list_widget_1.maximumHeight(), 70)
+        #self.assertEqual(self.mw.source_object, None)
 
     @patch('fd_replicator_main.ReplicatorMain.new_device', return_value=MagicMock())
     def test_select_source(self, mock_new_device):

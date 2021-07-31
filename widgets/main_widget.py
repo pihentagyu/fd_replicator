@@ -206,12 +206,12 @@ class MainWidget(QMainWindow):
         self.debug = False
         QMainWindow.__init__(self)
         self.source_object = None
-        self.thread_num = self.replicator_main.get_prev_thread_count()
-        self.init_config()
-        self.init_ui()
         self.checksums=True
+        self.init_ui()
 
     def init_ui(self):
+        self.thread_num = self.replicator_main.get_prev_thread_count()
+        self.init_config()
         self.main_widget = QWidget(self)
         self.setCentralWidget(self.main_widget)
         self.setWindowTitle('Devices')    
@@ -230,10 +230,10 @@ class MainWidget(QMainWindow):
         self.reset_action.setStatusTip('Reset Devices')
         self.reset_action.triggered.connect(self.reset_devices)
         
-        self.copy_action = QAction('C&opy To Devices', self)
-        self.copy_action.setShortcut('Ctrl+O')
+        self.copy_action = QAction('&Copy To Devices', self)
+        self.copy_action.setShortcut('Ctrl+C')
         self.copy_action.setEnabled(False)
-        self.copy_action.setStatusTip('Copyt Do Devices')
+        self.copy_action.setStatusTip('Copy To Devices')
         self.copy_action.triggered.connect(self.copy_to_devices)
 
         self.logs_action = QAction('&Logs', self)
@@ -253,7 +253,7 @@ class MainWidget(QMainWindow):
 
         self.exit_action = QAction('&Quit', self)
         self.exit_action.setShortcut('Ctrl+Q')
-        self.exit_action.setStatusTip('Exit application')
+        self.exit_action.setStatusTip('Exit Application')
         self.exit_action.triggered.connect(self.exit)
 
         '''Menubar'''
@@ -376,8 +376,8 @@ class MainWidget(QMainWindow):
     def init_config(self):
         error = self.replicator_main.check_and_create_dir(self.replicator_main.config_dir)
         if error:
-            QMessageBox.error(self, 'Error', error, QMessageBox.Ok)
-            sys.exit(1)
+            error_dialog = QErrorMessage()
+            error_dialog.showMessage('An Error Occurred!')
 
     def initialize_devices(self):
         self.hubs, self.devices = self.replicator_main.get_devices()
