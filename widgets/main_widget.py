@@ -11,6 +11,8 @@ import traceback
 
 from fd_replicator_main import ReplicatorMain
 from widgets.help_widget import HelpWidget
+from widgets.log_widget import LogWidget
+from widgets.email_setup_window import EmailSetupWidget
 
 from config.config import *
 
@@ -215,11 +217,15 @@ class MainWidget(QMainWindow):
         self.main_widget = QWidget(self)
         self.setCentralWidget(self.main_widget)
         self.setWindowTitle('Devices')    
+        self._create_actions()
+        self._create_menubar()
+        self._create_grid()
 
         '''Actions'''
 
         '''File Actions'''
 
+    def _create_actions(self):
         self.refresh_action = QAction('&Refresh', self)
         self.refresh_action.setShortcut('Ctrl+R')
         self.refresh_action.setStatusTip('Refresh')
@@ -256,6 +262,7 @@ class MainWidget(QMainWindow):
         self.exit_action.setStatusTip('Exit Application')
         self.exit_action.triggered.connect(self.exit)
 
+    def _create_menubar(self):
         '''Menubar'''
         menubar = self.menuBar()
         file_menu = menubar.addMenu('&File')
@@ -277,6 +284,7 @@ class MainWidget(QMainWindow):
         help_menu = menubar.addMenu('&Setup')
         help_menu.addAction(self.email_action)
 
+    def _create_grid(self):
         self.grid = QGridLayout()
         self.main_widget.setLayout(self.grid)
 
@@ -413,16 +421,8 @@ class MainWidget(QMainWindow):
         self.help_window = HelpWidget()
         self.help_window.show()
 
-    def normal_output_written(self, text):
-        """Append text to the QTextEdit."""
-        '''Maybe QTextEdit.append() works as well, but this is how I do it:'''
-        cursor = self.text_edit.textCursor()
-        cursor.movePosition(QTextCursor.End)
-        cursor.insertText(text)
-        self.text_edit.setTextCursor(cursor)
-        self.text_edit.ensureCursorVisible()
-
     def prepare_checksums(self, **kwargs):
+        '''Prepare the source object for copying - getting checksums, self.checksums is True'''
         progress_callback = kwargs.get('progress_callback')
         status = self.source_object.prepare_to_copy(checksums=self.checksums, progress_callback=progress_callback)
         return status
@@ -432,19 +432,11 @@ class MainWidget(QMainWindow):
         dest_object = self.replicator_main.new_device(device=device[1], port=device[0], hub=hub, hub_coordinates=device[2], source_mdsums=self.source_object.source_mdsums)
         progress_callback = kwargs.get('progress_callback')
         results = dest_object.copy(self.source_object.device, self.source_object.device_dir, checksums=self.checksums, progress_callback=progress_callback)
-
-        # One last check to see if device is mountable
-        #if results == 0:
-        #    tmp_dir = dest_object.mount_device()
-        #    if tmp_dir is not None:
-        #        dest_object.check_mountpoint()
-        #    else:
-        #        results = 1
-
         return dest_object, results
 
 
     def copy_to_devices(self):
+        '''Initiate the copying of files to the devices. Threads here are used for preparation (checksums). '''
         confirm = QMessageBox.question(self, 'Copy Files?', 'Copy to devices?', QMessageBox.Yes | QMessageBox.No)
         if confirm == QMessageBox.Yes:
             self.start_time = time.time()
@@ -465,25 +457,27 @@ class MainWidget(QMainWindow):
             self.checksums_threadpool.setMaxThreadCount(1)
 
             self.checksums_progress_bar.setValue(0)
-            checksums_worker = Worker(self.prepare_checksums)
-            checksums_worker.signals.result.connect(self.get_checksums_results)
-            checksums_worker.signals.finished.connect(self.checksums_finished_actions)
-            checksums_worker.signals.progress.connect(self.update_checksums_progress_bar)
-            # TO DD Start copying before finishing checksums?
-            self.checksums_threadpool.start(checksums_worker)
+            '''Prepare source, create checksums if self.checksums=True'''
+            self.checksums_worker = Worker(self.prepare_checksums)
+            '''If preparation was successful, this will also copy files'''
+            self.checksums_worker.signals.result.connect(self.get_checksums_results)
+            '''Once finished copying, calculate how many are done, etc.'''
+            self.checksums_worker.signals.finished.connect(self.checksums_finished_actions)
+            '''update progress bar as copying progresses'''
+            self.checksums_worker.signals.progress.connect(self.update_checksums_progress_bar)
+            self.checksums_threadpool.start(self.checksums_worker)
 
     def copy_files(self):
-        '''Copy files with threading'''
-
+        '''Copy files to the devices using multithreading'''
         self.initialize_devices() # Get devices one last time
         self.failed_devices = 0 # Failed devices reset to 0
         for hub in self.hubs:
             for device in self.devices[hub]:
-                worker = Worker(self.copy, hub, device)
-                worker.signals.result.connect(self.update_result)
-                worker.signals.finished.connect(self.do_completed_actions)
-                worker.signals.progress.connect(self.update_progress_bar)
-                self.threadpool.start(worker)
+                self.worker = Worker(self.copy, hub, device)
+                self.worker.signals.result.connect(self.update_result)
+                self.worker.signals.finished.connect(self.do_completed_actions)
+                self.worker.signals.progress.connect(self.update_progress_bar)
+                self.threadpool.start(self.worker)
 
     def get_checksums_results(self, result):
         #print(result)
@@ -531,13 +525,12 @@ class MainWidget(QMainWindow):
             self.source_object.check_mountpoint()
             self.timer.start()
             self.replicator_main.send_notification(self.finished_devices, self.failed_devices, total_time, self.file_list)
-            QMessageBox.information(self, 'Finished', 'Copied {} devices. Failures: {}. Time elapsed {}'.format(self.finished_devices, self.failed_devices, total_time), QMessageBox.Ok)
+            QMessageBox.information(self, 'Finished', 'Copied {} devices. Failures: {}. Time Elapsed {}'.format(self.finished_devices, self.failed_devices, total_time), QMessageBox.Ok)
 
     def get_source_dir_label(self):
-        if self.source_directory:
-            label = self.source_directory
+        label = self.source_directory if self.source_directory else ''
         self.source_dir_label.clear()
-        self.source_dir_label.setText('{}'.format(label))
+        self.source_dir_label.setText(f'{label}')
 
         '''Delete selected items'''
 
