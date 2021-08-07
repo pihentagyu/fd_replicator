@@ -96,6 +96,7 @@ class ReplicatorMain:
                 print(e)
 
     def send_notification(self, devices, failed, total_time, file_list):
+        '''Send email notification after finished copying to all devices.'''
         contents = ', '.join(file_list) if file_list else 'None'
         replicator = self.fd_devices.replicator
         email_data = self.get_email_settings()
@@ -106,6 +107,7 @@ class ReplicatorMain:
         self.mail.send_mail(email_data['from_addr'], email_data['to_addr'])
 
     def humanize_time(self, secs, **kwargs):
+        '''Given the number of seconds, return in (+) hours:minutes:seconds format'''
         add_plus_sign = kwargs.get('add_plus_sign', False)
         if secs == abs(secs):
             sign = '+'

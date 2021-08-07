@@ -268,12 +268,12 @@ class MainWidgetTests(unittest.TestCase):
         self.mw.timer.timeout.connect.assert_called_with(self.mw.check_devices)
         self.mw.timer.start.assert_called_with(6000)
 
-    def test_create_checksums(self):
+    def test_toggle_checksums(self):
         state = Qt.Checked
-        self.mw.create_checksums(state)
+        self.mw.toggle_checksums(state)
         self.assertEqual(self.mw.checksums, True)
         state = ''
-        self.mw.create_checksums(state)
+        self.mw.toggle_checksums(state)
         self.assertEqual(self.mw.checksums, False)
 
     def test_set_workers(self):

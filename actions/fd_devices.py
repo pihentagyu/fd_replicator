@@ -90,7 +90,7 @@ class FdDevice:
     def get_device_from_port(self):
         self.device = None
         if self.port:
-            direct_dev = self.get_direct_dev()
+            direct_dev = self.devices.get_direct_dev()
             for key, val in direct_dev.items():
                 if val == self.port:
                     self.device = key

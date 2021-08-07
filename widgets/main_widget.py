@@ -88,30 +88,35 @@ class Worker(QRunnable):
             self.signals.finished.emit()  # Done
 
 class DeviceStatus:
+    '''An object that holds the progress bar, icon and status for a given device'''
     def __init__(self):
         self.progress_bar = None
         self.icon = None
         self.status = None
 
     def new_device(self):
+        '''Create the DeviceStatus object for a new device'''
         self.progress_bar = QProgressBar() 
         self.icon = QLabel()
         self.icon.setPixmap(QPixmap(ICON_GREY_LED).scaled(15,15))
         self.progress_bar.setMaximum(100)
         
 class DeviceWidget:
+    '''The widget that maps out the devices, showing the progress bars and icons for status'''
     def __init__(self, **kwargs):
         self.replicator_main = ReplicatorMain()
         self.usb_ports = USB_PORTS if isinstance(USB_PORTS, list) or isinstance(USB_PORTS, tuple) else []
         self.progress_bars = {}
 
     def add_progress_bar(self, progress_bars, row, col):
+        '''Add a new progress bar for a device in a given location to the dict of progress bars'''
         device_status = DeviceStatus()
         device_status.new_device()
         progress_bars[(row, col)] = device_status
         return progress_bars
 
     def create_base_table(self):
+        '''Mapps out the devices from a hub. Each hub is added to a separate tab'''
         self.tab_widget = QTabWidget()
         self.all_ports = {}
         self.num_dev_labels = {}
@@ -154,6 +159,7 @@ class DeviceWidget:
         return self.tab_widget
 
     def get_active_devices(self, hub):
+        '''Create a set of active_devices, with progress bar'''
         self.active_devices = set()
         for device in self.devices[hub]:
             row, col = device[2]
@@ -161,11 +167,10 @@ class DeviceWidget:
             self.active_devices.add((row, col))
             progress_bar = self.progress_bars[hub][(row, col)]
             icon = progress_bar.icon
-            prog_bar = progress_bar.progress_bar
-            #prog_bar.setValue(0)
             icon.clear()
             '''If status is 0 (Success) or None (Not finished)'''
-            icon.setPixmap(QPixmap(ICON_GREEN_LED).scaled(15,15)) if not progress_bar.status else icon.setPixmap(QPixmap(ICON_RED_LED).scaled(15,15))
+            icon.setPixmap(QPixmap(ICON_GREEN_LED).scaled(15,15)) if  progress_bar.status == 0 \
+                    or progress_bar.status == None else icon.setPixmap(QPixmap(ICON_RED_LED).scaled(15,15))
 
 
     def set_led_on_active(self):
@@ -185,14 +190,17 @@ class DeviceWidget:
                     prog_bar = progress_bar.progress_bar
                     prog_bar.reset()
                     icon.clear()
-                    icon.setPixmap(QPixmap(ICON_RED_LED).scaled(15,15)) if progress_bar.status == 1 else icon.setPixmap(QPixmap(ICON_GREY_LED).scaled(15,15))
+                    icon.setPixmap(QPixmap(ICON_RED_LED).scaled(15,15)) if progress_bar.status == 1 \
+                            else icon.setPixmap(QPixmap(ICON_GREY_LED).scaled(15,15))
                 num_devices = len(self.devices[hub])
                 self.num_dev_labels[hub].clear()
-                self.num_dev_labels[hub].setText(f'{num_devices} Devices') if num_devices != 1 else self.num_dev_labels[hub].setText(f'{num_devices} Device')
+                self.num_dev_labels[hub].setText(f'{num_devices} Devices') if num_devices != 1 \
+                        else self.num_dev_labels[hub].setText(f'{num_devices} Device')
         else:
             self.reset_all()
 
     def reset_all(self):
+        '''Reset all progress bars, clear the icons and set the status to None for all devices'''
         for hub in USB_PORTS:
             for col in (0,1):
                 new_col = col * 2
@@ -202,6 +210,7 @@ class DeviceWidget:
                     self.progress_bars[hub][(row,col)].status = None
 
 class MainWidget(QMainWindow):
+    '''Main Widget window'''
     def __init__(self, *args, **kwargs):
         super(MainWidget, self).__init__(*args, **kwargs)
         self.replicator_main = ReplicatorMain()
@@ -221,11 +230,8 @@ class MainWidget(QMainWindow):
         self._create_menubar()
         self._create_grid()
 
-        '''Actions'''
-
-        '''File Actions'''
-
     def _create_actions(self):
+        '''Actions vaariables for adding to menubar and buttons'''
         self.refresh_action = QAction('&Refresh', self)
         self.refresh_action.setShortcut('Ctrl+R')
         self.refresh_action.setStatusTip('Refresh')
@@ -263,7 +269,7 @@ class MainWidget(QMainWindow):
         self.exit_action.triggered.connect(self.exit)
 
     def _create_menubar(self):
-        '''Menubar'''
+        '''Create the menubar, addding actions'''
         menubar = self.menuBar()
         file_menu = menubar.addMenu('&File')
 
@@ -285,6 +291,7 @@ class MainWidget(QMainWindow):
         help_menu.addAction(self.email_action)
 
     def _create_grid(self):
+        '''Grid layout with buttons, list widget with file names, and the mapped out hubs'''
         self.grid = QGridLayout()
         self.main_widget.setLayout(self.grid)
 
@@ -301,7 +308,6 @@ class MainWidget(QMainWindow):
             )
 
         self.button_dict = {}
-
 
         for row, button in enumerate(buttons):
             if button == None:
@@ -321,7 +327,7 @@ class MainWidget(QMainWindow):
 
         row += 1
 
-        '''Add list widget on right. Lists files on selected dir'''
+        '''Add list widget on right. Lists files on selected directory'''
 
         '''Add list widget with devices'''
         self.hub_label = QLabel()
@@ -338,6 +344,7 @@ class MainWidget(QMainWindow):
 
         row +=4
 
+        '''Choose number of threads. Defaults to last used'''
         thread_label = QLabel()
         thread_label.setAlignment(Qt.AlignRight)
         thread_label.clear()
@@ -352,13 +359,15 @@ class MainWidget(QMainWindow):
         self.thread_line_edit.editingFinished.connect(self.set_workers)
         self.grid.addWidget(self.thread_line_edit, row, 2)
 
+        '''Checkbox for creating and checking copied files with checksums'''
         widget_check_box = QCheckBox('Checksums')
         widget_check_box.setChecked(True)
         self.grid.addWidget(widget_check_box, row, 0)
-        widget_check_box.stateChanged.connect(self.create_checksums)
+        widget_check_box.stateChanged.connect(self.toggle_checksums)
 
         row += 1
 
+        '''Progress bar for initial checksum creation'''
         self.checksums_progress_bar = QProgressBar() 
         self.checksums_label = QLabel()
         self.checksums_label.setText('Initial Checksums Progress')
@@ -369,6 +378,7 @@ class MainWidget(QMainWindow):
 
         self.dev_widget_row = row + 3
 
+        '''Devices Widget with tab widget, one tab per hub'''
         self.device_widget = DeviceWidget()
         self.tab_widget = self.device_widget.create_base_table()
         self.initialize_devices()
@@ -382,42 +392,46 @@ class MainWidget(QMainWindow):
         self.start_timer()
 
     def init_config(self):
+        '''Check config directory and create if doesn't exist'''
         error = self.replicator_main.check_and_create_dir(self.replicator_main.config_dir)
         if error:
             error_dialog = QErrorMessage()
             error_dialog.showMessage('An Error Occurred!')
 
     def initialize_devices(self):
+        '''Get the devices and hubs'''
         self.hubs, self.devices = self.replicator_main.get_devices()
         self.total_devices = sum([len(self.devices[h]) for h in self.devices])
         self.device_widget.set_led_on_active()
 
     def start_timer(self):
+        '''Timer for providing checking for newly plugged in devices'''
         self.timer = QTimer()
         self.timer.timeout.connect(self.check_devices)
         self.timer.start(6000)
 
-    def create_checksums(self, state):
-        if state == Qt.Checked:
-            self.checksums = True
-        else:
-            self.checksums = False
+    def toggle_checksums(self, state):
+        '''Set checksums variable to True or False'''
+        self.checksums = True if state == Qt.Checked else False
     
     def set_workers(self):
+        '''Update number of threads'''
         self.thread_num = int(self.thread_line_edit.text())
         self.replicator_main.save_prev_thread_num(self.thread_num)
-        #print(self.thread_num)
         
     def view_logs(self):
+        '''Open log widget (incomplete)'''
         self.log_window = LogWidget()
         self.log_window.show()
 
     def email_notification(self):
+        '''Set up email notifications (incomplete)'''
         prev_email_settings = self.replicator_main.get_email_settings()
         self.email_setup_window = EmailSetupWidget(prev_email_settings=prev_email_settings)
         self.email_setup_window.show()
 
     def help(self):
+        '''Open help window'''
         self.help_window = HelpWidget()
         self.help_window.show()
 
@@ -429,9 +443,11 @@ class MainWidget(QMainWindow):
 
     def copy(self, hub, device, **kwargs):
         '''Copy files to the chip (device)'''
-        dest_object = self.replicator_main.new_device(device=device[1], port=device[0], hub=hub, hub_coordinates=device[2], source_mdsums=self.source_object.source_mdsums)
+        dest_object = self.replicator_main.new_device(device=device[1], port=device[0], hub=hub, hub_coordinates=device[2], 
+                source_mdsums=self.source_object.source_mdsums)
         progress_callback = kwargs.get('progress_callback')
-        results = dest_object.copy(self.source_object.device, self.source_object.device_dir, checksums=self.checksums, progress_callback=progress_callback)
+        results = dest_object.copy(self.source_object.device, self.source_object.device_dir, checksums=self.checksums, 
+                progress_callback=progress_callback)
         return dest_object, results
 
 
@@ -443,7 +459,8 @@ class MainWidget(QMainWindow):
             status = self.source_object.delete_ignored()
             if status != 0:
                 logging.info('Unable to remove unnecessary files from source device')
-                confirm = QMessageBox.question(self, 'Unable to remove hidden files', 'Unable to remove hidden files! Continue?', QMessageBox.Yes | QMessageBox.No)
+                confirm = QMessageBox.question(self, 'Unable to remove hidden files', 'Unable to remove hidden files! Continue?', 
+                        QMessageBox.Yes | QMessageBox.No)
                 if confirm == QMessageBox.No:
                     QMessageBox.warning(self, 'Warning', 'Not copying files!', QMessageBox.Ok)
                     return
@@ -480,7 +497,7 @@ class MainWidget(QMainWindow):
                 self.threadpool.start(self.worker)
 
     def get_checksums_results(self, result):
-        #print(result)
+        ''''Once checksums have been created, initiate copying'''
         if result == 0: # If success
             self.checksums_progress_bar.setValue(100) # Set progrress bar to 100%
             self.copy_files() # Start copying files
@@ -488,24 +505,24 @@ class MainWidget(QMainWindow):
             QMessageBox.warning(self, 'Warning', 'Unable to create initial checksums! Please check logs', QMessageBox.Ok)
 
     def update_checksums_progress_bar(self, p):
+        '''Progress bar update changes for checksums'''
         n = p[0]
         progress_bar = self.checksums_progress_bar
         progress_bar.setValue(n)
 
     def checksums_finished_actions(self):
-        #print('finished')
-        #self.checksums_progress_bar.setValue(100)
         pass
 
     def update_progress_bar(self, p):
+        '''Progress bar update changes for device copying'''
         n, hub, hub_coordinates = p
         #print(n, hub, hub_coordinates)
         progress_bar = self.device_widget.progress_bars[hub][hub_coordinates].progress_bar
         progress_bar.setValue(n)
 
     def update_result(self, result):
+        '''Se progress bar to 100 if completed sucessfully, else set icon to red and add to failed devices'''
         device_object = result[0]
-
         progress_info = self.device_widget.progress_bars[device_object.hub][device_object.hub_coordinates]
         progress_bar = progress_info.progress_bar
         progress_info.status = result[1]
@@ -518,28 +535,33 @@ class MainWidget(QMainWindow):
             led_icon.setPixmap(QPixmap(ICON_RED_LED).scaled(15,15))
 
     def do_completed_actions(self):
+        '''As each device is completed, add to finished devices. Once all are completed, send notifications'''
         self.finished_devices += 1
         total_time = time.time() - self.start_time
         if self.finished_devices == self.total_devices:
-            logging.info('Total devices completed: {}. Failed: {}. Time Elapsed: {}'.format(self.finished_devices, self.failed_devices, total_time))
+            logging.info('Total devices completed: {}. Failed: {}. Time Elapsed: {}'.format(self.finished_devices, 
+                self.failed_devices, total_time))
             self.source_object.check_mountpoint()
             self.timer.start()
             self.replicator_main.send_notification(self.finished_devices, self.failed_devices, total_time, self.file_list)
-            QMessageBox.information(self, 'Finished', 'Copied {} devices. Failures: {}. Time Elapsed {}'.format(self.finished_devices, self.failed_devices, total_time), QMessageBox.Ok)
+            QMessageBox.information(self, 'Finished', 
+                    f'Copied {self.finished_devices} devices. Failures: {self.failed_devices}. Time Elapsed {total_time}', 
+                    QMessageBox.Ok)
 
     def get_source_dir_label(self):
+        '''Update label for source directory'''
         label = self.source_directory if self.source_directory else ''
         self.source_dir_label.clear()
         self.source_dir_label.setText(f'{label}')
 
-        '''Delete selected items'''
-
     def get_source_object(self):
+        '''Get the device which will be copied'''
         source_object = self.replicator_main.new_device(port=self.list_widget_0.currentItem().text())    
         source_object.get_device_from_port()
         return source_object
 
     def select_source(self):
+        '''Get contents of objects to be copied, and enable copy button'''
         self.source_object = self.get_source_object()
         logging.info(self.source_object.device)
         if self.source_object.device:
@@ -549,7 +571,8 @@ class MainWidget(QMainWindow):
             self.check_devices()
 
     def add_list(self):
-        success = self.refresh() # Populate the list
+        '''Populate the list of files'''
+        success = self.refresh() 
         if success:
             self.show_list = True
             self.list_widget_1.show()
@@ -560,6 +583,7 @@ class MainWidget(QMainWindow):
 
 
     def refresh(self):
+        '''Get list of files from source device, and add to widget'''
         success = False
         self.file_list = []
         self.list_widget_1.clear()
@@ -585,6 +609,7 @@ class MainWidget(QMainWindow):
         return success
 
     def add_source_list(self):
+        '''Set up the list widget'''
         success = True
         self.list_widget_0 = QListWidget()
         self.list_widget_0.setContextMenuPolicy(Qt.ActionsContextMenu)
@@ -606,8 +631,7 @@ class MainWidget(QMainWindow):
         return success
 
     def check_devices(self):
-        #First get device information via replicator_main
-        #Then open check_devices DisplayDevices() to display the devices
+        '''Add source list, and check devices'''
         self.add_source_list()
         self.device_widget.set_led_on_active()
 

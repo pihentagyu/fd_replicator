@@ -15,20 +15,15 @@ def logging_init():
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
     logging.basicConfig(filename=LOGFILE, level=logging.INFO, format='%(asctime)s %(levelname)s: %(message)s')
-    #except KeyError:
-    #    #cs.initial_setup()
-    #    self.get_vars()
-    #        #self.local_settings = cs.startup()
 
 def window():
+    '''Initiate the logging and open the main widget window'''
     logging_init()
     app = QApplication(sys.argv)
     ex = MainWidget()
     ex.show()
     ret = app.exec_()
-    #sys.exit(ret)
     return ex
-
 
 if __name__ == '__main__':
     window()    
