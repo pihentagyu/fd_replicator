@@ -608,9 +608,16 @@ class QTextEditLoggerTests(unittest.TestCase):
     def test_defaults(self):
         self.assertEqual(self.logger.widget.isReadOnly(), True)
 
+    def test_emit(self):
+        self.logger.format = MagicMock()
+
+        self.logger.emit(record)
+
 class LogWidgetTests(unittest.TestCase):
     pass
 
+class EmailSetupWindowTests(unittest.TestCase):
+    pass
 
 if __name__ == '__main__':
     unittest.main()

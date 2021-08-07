@@ -69,7 +69,6 @@ class ReplicatorMain:
     def get_direct_dev(self):
         '''get devices connected directly to the box'''
         direct_devices = self.fd_devices.get_direct_dev()
-        print(direct_devices)
         if direct_devices:
             return direct_devices
         else:

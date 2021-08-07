@@ -6,9 +6,9 @@ from fd_replicator_main import ReplicatorMain
 class HelpWidget(QWidget):
     def __init__(self):
         self.replicator_main = ReplicatorMain()
-        self.init_ui()
         QWidget.__init__(self)
         self.popup_widget = QWidget(self)
+        self.init_ui()
 
     def init_ui(self):
         self.popup_widget.resize(600,800)
