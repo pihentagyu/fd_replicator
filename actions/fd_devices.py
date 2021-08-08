@@ -30,29 +30,30 @@ class Devices:
     def get_usb_ids(self):
         '''Returns a dictionary of the disk-path: usb ids from /dev/disk/by-path. Removes the partition listings'''
         try:
-            usb_ids = {os.path.realpath(os.path.join(self.usbdir, usb)): usb.split(':')[1].split('.') for usb in os.listdir(self.usbdir) if 'usb' in usb and 'part' not in usb}
+            usb_ids = {os.path.realpath(os.path.join(self.usbdir, usb)): usb.split(':')[1].split('.') \
+                    for usb in os.listdir(self.usbdir) if 'usb' in usb and 'part' not in usb}
         except FileNotFoundError:
             return {}
         return usb_ids
     
     def get_direct_dev(self):
+        '''Direct devices must be in the USB port in the config. Generally, '01' '''
         dir_dev =  {key: '.'.join(val) for key, val in self.get_usb_ids().items() if '.'.join(val) in self.usb_ports}
         return dir_dev
     
     def get_dev_loc_from_mapping(self, dev_addr):
-        if dev_addr in self.mappings:
-            return self.mappings.index(dev_addr)
-        else:
-            return 
+        '''given the device address, return the device location from the mappings'''
+        return self.mappings.index(dev_addr) if dev_addr in self.mappings else None
 
     def get_dev_map_location(self, dev_addr):
+        '''Return the device location with the column number'''
         dev_loc = self.get_dev_loc_from_mapping(dev_addr)
         if dev_loc == None:
             return None
         if dev_loc > self.hub_rows - 1:
             return (dev_loc - self.hub_rows, 1)
         else:
-            return(dev_loc, 0)
+            return (dev_loc, 0)
 
     def get_hubs_with_mappings(self, usb_ids):
         '''Returns dict of hubs eg: {'1': [('1.2.3', '/dev/sdb', (0.0)), ('1.3.5', '/dev/sdc', (0.1))]}'''
@@ -155,7 +156,8 @@ class FdDevice:
         try:
             for dname in os.walk(source_dir):
                 for fname in dname[2]:
-                    mdsums.append(fname + ' ' + hashlib.md5(open(os.path.join(dname[0], fname), 'rb').read()).hexdigest())
+                    mdsums.append(fname + ' ' + hashlib.md5(
+                        open(os.path.join(dname[0], fname), 'rb').read()).hexdigest())
                     num_copied += 1
                     if num_copied % chunks == 0:
                         self.calculate_and_emit(num_copied, self.num_files, pc=pc, adj=adj)
@@ -204,6 +206,7 @@ class FdDevice:
     
     
     def delete_ignored(self, **kwargs):
+        '''Ignored files (listed in config) are removed before copying'''
         directory = kwargs.get('directory', None)
         if directory == None:
             directory = self.device_dir
@@ -243,16 +246,18 @@ class FdDevice:
         return 0
    
     def count_files(self, directory):
-        files = []
+        '''Return number of files in a directory and its subdirectories'''
+        file_count = 0
         if os.path.isdir(directory):
             for path, dirs, filenames in os.walk(directory):
-                files.extend(filenames)
-        return len(files)
+                file_count += len(filenames)
+        return file_count
 
     def makedirs(self, dest):
+        '''Create a given directory, if it doesn't exist already'''
         if not os.path.exists(dest):
             try:
-                r =os.makedirs(dest)
+                os.makedirs(dest)
             except OSError as oe:
                 logging.info(f'On creation of {dest}: {oe}')
 
@@ -270,15 +275,12 @@ class FdDevice:
         dest_dir = kwargs.get('dest_dir', None)
         if dest_dir == None:
             dest_dir = self.device_dir
-
         self.num_files = self.count_files(source_dir)
         chunks = self.num_files // 100
         chunks = 1 if chunks == 0 else chunks
-
  
         if self.num_files > 0:
             self.makedirs(dest_dir)
- 
             num_copied = 0
  
             for path, dirs, filenames in os.walk(source_dir):
@@ -296,10 +298,7 @@ class FdDevice:
                         return 1
                     num_copied += 1
                     if num_copied % chunks == 0:
-                        if self.checksums:
-                            pc = 50
-                        else:
-                            pc = 100
+                        pc = 50 if self.checksums else 100
                         self.calculate_and_emit(num_copied, self.num_files, pc=pc)
         return 0
 
@@ -324,7 +323,7 @@ class FdDevice:
 
 
     def format_device(self, **kwargs):
-        # Wipe  shred_blocks of data from the device. Shredding the whole drive would take too much time
+        ''' Wipe  shred_blocks of data from the device. Shredding the whole drive would take too much time'''
         device = kwargs.get('device')
         if not device:
             device = self.device
@@ -340,7 +339,7 @@ class FdDevice:
             logging.error(e)
             return 1
     
-        # First clobber it, removing all partitions
+        ''' First clobber it, removing all partitions'''
         try:
             status = dev.clobber()
         except parted._ped.IOException as e:
@@ -351,7 +350,7 @@ class FdDevice:
             return 1
         if status == False:
             return 1
-        # Create a fresh disk
+        ''' Create a fresh disk'''
         try:
             disk = parted.freshDisk(dev, 'msdos')
         except parted._ped.DiskException as e:
@@ -369,8 +368,8 @@ class FdDevice:
             logging.info(f'Error formatting disk {device}.')
             return 1
 
-        ## Here it is possible to create partitions with disk using parted, but we'll just format
-        # Make a file system
+        '''# Here it is possible to create partitions with disk using parted, but we'll just format'''
+        ''' Make a file system'''
         cmd = shlex.split(f'mkfs.vfat -I {device}')
         logging.info(cmd)
         status = self.check_call(cmd, timeout=30)
@@ -389,7 +388,7 @@ class FdDevice:
             cmd = shlex.split(f'umount {device}')
             status = self.check_call(cmd, timeout=30)
         else:
-            # Check to see if directory is mounted
+            ''' Check to see if directory is mounted'''
             cmd = shlex.split(f'mountpoint -q {mount_dir}') 
             #logging.info(cmd)
             status = self.check_call(cmd, timeout=30) 
@@ -402,32 +401,32 @@ class FdDevice:
         return status
 
     def copy_files_to_device(self):
-        # First mount the device, get the mount directory and status
+        ''' First mount the device, get the mount directory and status'''
         logging.info('Copying to device...')
         device = self.device
         logging.info(device)
         self.device_dir, status = self.mount_device()
         if status != 0:
             status = self.format_device()
-            #if mounting was unsuccessful, format device and create file system
+            '''if mounting was unsuccessful, format device and create file system'''
             status = self.format_device()
             if status != 0:
                logging.info(f'Unable to format device {device}')
                return status
-            #Once formated, try again to mount. Return status 1 if unable to mount
+            '''Once formated, try again to mount. Return status 1 if unable to mount'''
             self.device_dir, status = self.mount_device()
             if status != 0:
                 logging.info(f'Unable to mount device {device}')
                 return status
-        # Copy the files from the local file directory to the device
+        ''' Copy the files from the local file directory to the device'''
         status = self.delete_all()
         if status != 0:
-            #if removing files was unsuccessful, format device and create file system
+            '''if removing files was unsuccessful, format device and create file system'''
             status = self.format_device()
             if status != 0:
                logging.info(f'Unable to format device {device}')
                return status
-            #Once formated, try again to mount. Return status 1 if unable to mount
+            '''Once formated, try again to mount. Return status 1 if unable to mount'''
             self.device_dir, status = self.mount_device()
             if status != 0:
                 logging.info(f'Unable to mount device {device}')
@@ -438,13 +437,13 @@ class FdDevice:
         if status != 0:
             self.check_mountpoint()
             return status
-        # Compare checksums of the newly copied files
+        ''' Compare checksums of the newly copied files'''
         if self.checksums:
             status = self.compare_checksums_files(self.device_dir)
             if status != 0:
                 logging.info(f'Checksums did not match on device {device}')
                 return status
-        # Unmount the device
+        '''Unmount the device'''
         status = self.check_mountpoint()
         if status != 0:
             logging.info(f'Failed to unmount on device {device}')
@@ -465,12 +464,12 @@ class FdDevice:
         self.checksums = kwargs.get('checksums')
         self.progress_callback = kwargs.get('progress_callback')
 
-        #device_dir Mount source device
+        '''device_dir Mount source device'''
         self.device_dir, status = self.mount_device(device=self.device)
         if status != 0:
             print('Unable to mount source directory!')
             return 1
-        # Create checksums before copying
+        ''' Create checksums before copying'''
         if self.checksums:
             self.source_mdsums = self.create_checksums_files()
             if self.source_mdsums == 1:
@@ -494,19 +493,19 @@ class FdDevice:
         self.progress_callback = kwargs.get('progress_callback')
 
         logging.info(f'copy from device: {source_device}')
-        # Removed source device from devices
+        ''' Removed source device from devices'''
 
         copy_start = time.time()
         
-        # multithread running copy_files_to_dev with devices list as args
+        ''' multithread running copy_files_to_dev with devices list as args'''
         results = self.copy_files_to_device()
         status = self.check_mountpoint()
         if status != 0:
             logging.info(f'Failed to unmount device {self.device}')
-        # List the devices and status for each
+        ''' List the devices and status for each'''
         logging.info(f'results {results}')
     
-        # print the summary and times
+        ''' print the summary and times'''
         end = time.time()
         logging.info(f'Total time elapsed: {end - copy_start} seconds')
         total_time = end - copy_start

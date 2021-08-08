@@ -97,8 +97,6 @@ class ReplicatorMainTests(unittest.TestCase):
             ('2.2', '/dev/sdu', (2, 1)), ('4.4', '/dev/sdt', (13, 0)), ('1.1', '/dev/sde', (11, 1))], '2': [('2.1', '/dev/sdp', (3, 1)), 
             ('2.5', '/dev/sdd', (6, 1)), ('2.3', '/dev/sdb', (1, 1))]})
         hubs, connected_ports = self.replicator_main.get_devices()
-        print(hubs)
-        print(connected_ports)
 
     def test_get_direct_dev(self):
         self.replicator_main.fd_devices.get_direct_dev = MagicMock(side_effect=[{'/dev/sda': '00'}, None])
@@ -198,7 +196,6 @@ class DevicesTests(unittest.TestCase):
         self.devices.usb_ports = ['00']
         direct_dev = self.devices.get_direct_dev()
         self.devices.get_usb_ids.assert_called()
-        print(direct_dev)
         self.assertEqual(direct_dev, {'/dev/sda': '00'})
         
     def test_get_dev_loc_from_mapping(self):
@@ -245,7 +242,6 @@ class DevicesTests(unittest.TestCase):
         self.assertIsInstance(hubs['1'][0], tuple)
         self.assertEqual(hubs['1'][0][0], '2.6')
         #self.assertEqual(hubs['1'][0], '/dev/')
-        print('get hubs with mappings: returned results: {}'.format(hubs))
         for dev in hubs['1']:
             if dev[0] == '2.6':
                 self.assertEqual(dev[1], '/dev/sdh')
@@ -261,7 +257,7 @@ class FdDeviceTests(unittest.TestCase):
 
     def test_get_device_from_port(self):
         self.fd_device.port = '1.2.6'
-        self.fd_device.get_direct_dev = MagicMock(return_value={'/dev/sda': '1.2.6'})
+        self.fd_device.devices.get_direct_dev = MagicMock(return_value={'/dev/sda': '1.2.6'})
         self.fd_device.get_device_from_port() 
         self.assertEqual(self.fd_device.device, '/dev/sda')
 
@@ -346,8 +342,8 @@ class FdDeviceTests(unittest.TestCase):
         status = self.fd_device.delete_all(directory='/foo/bar')
         self.assertEqual(status, 1)
 
-        print(mock_remove.mock_calls)
-        print(mock_rmdir.mock_calls)
+        self.assertEqual(len(mock_remove.mock_calls), 15)
+        self.assertEqual(len(mock_rmdir.mock_calls), 4)
 
     @patch.multiple('actions.fd_devices.logging', info=DEFAULT, error=DEFAULT)
     #@patch('actions.fd_devices.os.listdir', return_value = ['a.txt', 'b.txt', 'c.txt']) 
@@ -424,7 +420,6 @@ class FdDeviceTests(unittest.TestCase):
 
         self.assertEqual(self.fd_device.calculate_and_emit.call_count, 7)
 
-    #@patch('actions.fd_devices.subprocess.check_call', side_effect=[0, 0, 0, subprocess.CalledProcessError('CalledProcessError'), subprocess.TimeoutExpired('TimeoutExpired'), OSError('OS Error')])
     @patch('actions.fd_devices.subprocess.check_call', side_effect=[0, 0, 0, OSError('OS Error')])
     @patch('actions.fd_devices.logging.info')
     def test_check_call(self, mock_info, mock_check_call):
@@ -445,22 +440,6 @@ class FdDeviceTests(unittest.TestCase):
         self.assertEqual(status, 0)
         mock_check_call.assert_called_with(cmd, timeout=10, shell=True)
         #test CalledProcesserError
-
-        #fd_devices.subprocess.check_call = MagicMock(return_value=0, side_effect=fd_devices.subprocess.CalledProcessError('CalledProcessError')) 
-        #cmd = shlex.split('ls -l')
-        #status = self.fd_device.check_call(cmd)
-        #self.assertEqual(status, 1)
-        ##mock_check_call.assert_called_with(cmd, timeout=None, shell=False)
-        #mock_info.assert_called_with(self.fd_device.device, 'CalledProcessError')
-        #fd_devices.subprocess.check_call.assert_called_with(cmd, timeout=None, shell=False)
-        #
-        #fd_devices.subprocess.check_call = MagicMock(side_effect=subprocess.CalledProcessError(subprocess.TimeoutExpired('TimeoutExpired'))) #side_effect=[0, 0, 0, subprocess.CalledProcessError('CalledProcessError'), subprocess.TimeoutExpired('TimeoutExpired'), OSError('OS Error')])
-        #cmd = shlex.split('ls -l')
-        #status = self.fd_device.check_call(cmd)
-        #self.assertEqual(status, 1)
-        ##mock_check_call.assert_called_with(cmd, timeout=None, shell=False)
-        #mock_info.assert_called_with(self.fd_device.device, 'TimeoutExpired')
-        #fd_devices.subprocess.check_call.assert_called_with(cmd, timeout=None, shell=False)
 
         cmd = shlex.split('ls -l')
         status = self.fd_device.check_call(cmd)
