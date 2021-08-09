@@ -270,24 +270,24 @@ class MainWidget(QMainWindow):
 
     def _create_menubar(self):
         '''Create the menubar, addding actions'''
-        menubar = self.menuBar()
-        file_menu = menubar.addMenu('&File')
+        self.menubar = self.menuBar()
+        file_menu = self.menubar.addMenu('&File')
 
-        metadata_menu = menubar.addMenu('&Devices')
+        metadata_menu = self.menubar.addMenu('&Devices')
         metadata_menu.addAction(self.reset_action)
         metadata_menu.addAction(self.refresh_action)
         metadata_menu.addAction(self.copy_action)
 
-        tools_menu = menubar.addMenu('&Tools')
+        tools_menu = self.menubar.addMenu('&Tools')
 
-        report_menu = menubar.addMenu('&Run')
+        report_menu = self.menubar.addMenu('&Run')
         metadata_menu.addAction(self.copy_action)
 
-        help_menu = menubar.addMenu('&Help')
+        help_menu = self.menubar.addMenu('&Help')
         help_menu.addAction(self.help_action)
         help_menu.addAction(self.logs_action)
 
-        help_menu = menubar.addMenu('&Setup')
+        help_menu = self.menubar.addMenu('&Setup')
         help_menu.addAction(self.email_action)
 
     def _create_grid(self):
@@ -360,10 +360,10 @@ class MainWidget(QMainWindow):
         self.grid.addWidget(self.thread_line_edit, row, 2)
 
         '''Checkbox for creating and checking copied files with checksums'''
-        widget_check_box = QCheckBox('Checksums')
-        widget_check_box.setChecked(True)
-        self.grid.addWidget(widget_check_box, row, 0)
-        widget_check_box.stateChanged.connect(self.toggle_checksums)
+        self.checksums_check_box = QCheckBox('Checksums')
+        self.checksums_check_box.setChecked(True)
+        self.grid.addWidget(self.checksums_check_box, row, 0)
+        self.checksums_check_box.stateChanged.connect(self.toggle_checksums)
 
         row += 1
 

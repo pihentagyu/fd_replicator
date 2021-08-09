@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch, call
 from PyQt5.QtGui import QPixmap, QTextCursor 
 from PyQt5.QtWidgets import QApplication, QTextEdit, QPushButton, QProgressBar, QLabel, QTabWidget, QListWidgetItem, QStackedWidget, QGridLayout, QMessageBox
 from PyQt5.QtTest import QTest
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QPoint
 from widgets.help_widget import HelpWidget
 from widgets.log_widget import QTextEditLogger, LogWidget
 from widgets.main_widget import MainWidget, WorkerSignals, Worker, DeviceStatus, DeviceWidget
@@ -237,6 +237,66 @@ class MainWidgetTests(unittest.TestCase):
 
         self.assertEqual(self.mw.list_widget_1.maximumHeight(), 70)
         self.assertEqual(self.mw.source_object, None)
+
+    def test_buttons(self):
+        self.mw.replicator_main.get_prev_thread_count = MagicMock(return_value=5)
+        self.mw.init_config = MagicMock()
+        self.mw.initialize_devices = MagicMock()
+        self.add_source_list = MagicMock()
+        self.mw.refresh = MagicMock()
+        self.mw.reset_devices = MagicMock()
+        self.mw.copy_to_devices = MagicMock()
+        self.mw.view_logs = MagicMock()
+        self.mw.email_notification = MagicMock()
+        self.mw.exit = MagicMock()
+        self.mw.help = MagicMock()
+        self.mw.init_ui()
+
+        QTest.mouseClick(self.mw.button_dict['Refresh File List'], Qt.LeftButton)
+        self.mw.refresh.assert_called()
+        
+        QTest.mouseClick(self.mw.button_dict['Reset Devices'], Qt.LeftButton)
+        self.mw.reset_devices.assert_called()
+        
+        self.mw.button_dict['Copy'].setEnabled(1)
+        QTest.mouseClick(self.mw.button_dict['Copy'], Qt.LeftButton)
+        self.mw.copy_to_devices.assert_called()
+
+        QTest.mouseClick(self.mw.button_dict['View Logs'], Qt.LeftButton)
+        self.mw.view_logs.assert_called()
+
+        QTest.mouseClick(self.mw.button_dict['Setup Notifications'], Qt.LeftButton)
+        self.mw.email_notification.assert_called()
+
+        QTest.mouseClick(self.mw.button_dict['Help'], Qt.LeftButton)
+        self.mw.help.assert_called()
+        
+        QTest.mouseClick(self.mw.button_dict['Exit'], Qt.LeftButton)
+        self.mw.exit.assert_called()
+
+    def test_thread_label(self):
+        self.mw.replicator_main.get_prev_thread_count = MagicMock(return_value=5)
+        self.mw.init_config = MagicMock()
+        self.mw.initialize_devices = MagicMock()
+        self.add_source_list = MagicMock()
+        self.mw.init_ui()
+
+        self.assertEqual(self.mw.thread_line_edit.placeholderText(), '5') 
+        QTest.keyClicks(self.mw.thread_line_edit, '8')
+        self.assertEqual(self.mw.thread_line_edit.text(), '8') 
+
+    def test_checksums_checkbox(self):
+        self.mw.replicator_main.get_prev_thread_count = MagicMock(return_value=5)
+        self.mw.init_config = MagicMock()
+        self.mw.initialize_devices = MagicMock()
+        self.add_source_list = MagicMock()
+        self.mw.toggle_checksums = MagicMock()
+        self.mw.init_ui()
+
+        self.assertEqual(self.mw.checksums_check_box.isChecked(), True)
+        QTest.mouseClick(self.mw.checksums_check_box, Qt.LeftButton, pos=QPoint(2,int(self.mw.checksums_check_box.height()/2)))
+        self.mw.toggle_checksums.assert_called()
+
 
     @patch('widgets.main_widget.QErrorMessage')
     def test_init_config(self, mock_QErrorMessage):
